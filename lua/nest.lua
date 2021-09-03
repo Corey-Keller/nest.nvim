@@ -12,6 +12,9 @@ module.defaults = {
     },
 }
 
+-- Create empty table to hold mapping info for later reference
+NestMapsTable = {}
+
 --- Registry for keymapped lua functions, do not modify!
 module.functions = {}
 
@@ -97,6 +100,28 @@ module.applyKeymaps = function (config, presets)
     local rhs = type(second) == "function"
         and '<Cmd>lua require("nest").functions[' .. registerFunction(second) .. ']()<CR>'
         or second
+
+    local cfg = {}
+    if mergedPresets.mode ~= nil then
+        cfg.mode = mergedPresets.mode
+    end
+
+    if mergedPresets.buffer ~= nil then
+        cfg.buffer = mergedPresets.buffer
+    end
+
+    if mergedPresets.options ~= nil then
+        cfg.options = copy(mergedPresets.options)
+    end
+
+    cfg.lhs = mergedPresets.prefix
+    cfg.rhs = rhs
+
+    if type(config[3]) == "string" then
+        cfg.description = config[3]
+    end
+
+    table.insert(NestMapsTable,cfg)
 
     for mode in string.gmatch(mergedPresets.mode, '.') do
         if mergedPresets.buffer then
