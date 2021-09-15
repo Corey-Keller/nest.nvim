@@ -161,6 +161,7 @@ module.applyKeymaps = function (config, presets)
                 mergedPresets.options
             )
         end
+        require('which-key').register({ [mapConfig.lhs] = { mapConfig.description } }, { mode = sanitizedMode })
     end
 end
 
