@@ -1,7 +1,5 @@
 local module = {}
 
-local inspect = require 'nest-modules.inspect'
-
 --- Defaults being applied to `applyKeymaps`
 -- Can be modified to change defaults applied.
 module.defaults = {
@@ -16,6 +14,9 @@ module.defaults = {
 
 local rhsFns = {}
 
+-- Create empty table to hold mapping info for later reference
+NestMapsTable = {}
+
 module._callRhsFn = function(index)
     rhsFns[index]()
 end
@@ -24,6 +25,16 @@ module._getRhsExpr = function(index)
     local keys = rhsFns[index]()
 
     return vim.api.nvim_replace_termcodes(keys, true, true, true)
+end
+
+local function functionToRhs(func, expr)
+    table.insert(rhsFns, func)
+
+    local insertedIndex = #rhsFns
+
+    return expr
+        and 'v:lua.package.loaded.nest._getRhsExpr(' .. insertedIndex .. ')'
+        or '<cmd>lua package.loaded.nest._callRhsFn(' .. insertedIndex .. ')<cr>'
 end
 
 local function copy(table)
@@ -36,14 +47,14 @@ local function copy(table)
     return ret
 end
 
-local function functionToRhs(func, expr)
-    table.insert(rhsFns, func)
+local function mergeTables(left, right)
+    local ret = copy(left)
 
-    local insertedIndex = #rhsFns
+    for key, value in pairs(right) do
+        ret[key] = value
+    end
 
-    return expr
-        and 'v:lua.package.loaded.nest._getRhsExpr(' .. insertedIndex .. ')'
-        or '<cmd>lua package.loaded.nest._callRhsFn(' .. insertedIndex .. ')<cr>'
+    return ret
 end
 
 local function mergeOptions(left, right)
@@ -66,7 +77,7 @@ local function mergeOptions(left, right)
     end
 
     if right.options ~= nil then
-        ret.options = vim.tbl_extend("force", ret.options, right.options)
+        ret.options = mergeTables(ret.options, right.options)
     end
 
     return ret
@@ -103,7 +114,27 @@ module.applyKeymaps = function (config, presets)
         and functionToRhs(second, mergedPresets.options.expr)
         or second
 
-    inspect.saveMapping(mergedPresets, second, config.name)
+    local mapConfig = {}
+    if mergedPresets.mode ~= nil then
+        mapConfig.mode = mergedPresets.mode
+    end
+
+    if mergedPresets.buffer ~= nil then
+        mapConfig.buffer = mergedPresets.buffer
+    end
+
+    if mergedPresets.options ~= nil then
+        mapConfig.options = copy(mergedPresets.options)
+    end
+
+    mapConfig.lhs = mergedPresets.prefix
+    mapConfig.rhs = rhs
+
+    if type(config[3]) == "string" then
+        mapConfig.description = config[3]
+    end
+
+    table.insert(NestMapsTable,mapConfig)
 
     for mode in string.gmatch(mergedPresets.mode, '.') do
         local sanitizedMode = mode == '_'
