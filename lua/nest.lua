@@ -130,6 +130,9 @@ module.applyKeymaps = function (config, presets)
                 mergedPresets.options
             )
         end
+            if type(config.name) == "string" then
+                require('which-key').register({ [mergedPresets.prefix] = { config.name } }, { mode = sanitizedMode })
+            end
     end
 end
 
